@@ -27,8 +27,8 @@ A simple Bash script to check locally installed Arch Linux (AUR) packages agains
 2. Make it executable and run it:
 
 ```bash
-chmod +x aur-vulnerability-check.sh
-./aur-vulnerability-check.sh
+chmod +x aur-check.sh
+./aur-check.sh
 
 ```
 
