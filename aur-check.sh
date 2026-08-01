@@ -18,23 +18,23 @@ NC='\033[0m' # No Color
 
 echo -e "${YELLOW}[*] Fetching and merging compromised package lists...${NC}"
 
-sorgenti_completate=0
+completed_sources=0
 
 # Download from each source, clean up, and merge into the temporary file
 for url in "${URLS[@]}"; do
     # Extract only the domain part to display clean output
-    dominio=$(echo "$url" | awk -F/ '{print $3}')
+    domain=$(echo "$url" | awk -F/ '{print $3}')
 
     if curl -fsS --proto '=https' --connect-timeout 10 "$url" | grep -v '^#' | tr -s '[:space:]' '\n' | sed 's/[*`_]//g' | grep -E '^[a-zA-Z0-9_-]+$' >> "$TEMP_MERGE" 2>/dev/null; then
-        echo -e "  ${GREEN}[✓] Successfully downloaded from:${NC} $dominio"
-        ((sorgenti_completate++))
+        echo -e "  ${GREEN}[✓] Successfully downloaded from:${NC} $domain"
+        ((completed_sources++))
     else
-        echo -e "  ${RED}[!] Error or timeout downloading from:${NC} $dominio"
+        echo -e "  ${RED}[!] Error or timeout downloading from:${NC} $domain"
     fi
 done
 
 # Check if at least one source was downloaded successfully
-if [ "$sorgenti_completate" -eq 0 ]; then
+if [ "$completed_sources" -eq 0 ]; then
     echo -e "${RED}[!] Critical error: Unable to download any list of compromised packages.${NC}"
     rm -f "$TEMP_FILE" "$TEMP_MERGE"
     exit 1
@@ -51,40 +51,40 @@ if [ ! -s "$TEMP_FILE" ]; then
     exit 1
 fi
 
-totale_lista=$(wc -l < "$TEMP_FILE")
-echo -e "${GREEN}[+] Unified database ready (${totale_lista} unique tracked packages).${NC}"
+total_list=$(wc -l < "$TEMP_FILE")
+echo -e "${GREEN}[+] Unified database ready (${total_list} unique tracked packages).${NC}"
 echo -e "${YELLOW}[*] Checking installed AUR packages on the system...${NC}"
 
 # Get "foreign" packages installed locally (i.e. installed from AUR)
 # -Qm returns only packages not found in official repos
-mappa_aur_locali=$(pacman -Qm | awk '{print $1}')
+local_aur_map=$(pacman -Qm | awk '{print $1}')
 
-if [ -z "$mappa_aur_locali" ]; then
+if [ -z "$local_aur_map" ]; then
     echo -e "${GREEN}[+] No AUR packages installed on the system.${NC}"
     rm -f "$TEMP_FILE"
     exit 0
 fi
 
 # Counter for matches found
-corrotti_trovati=0
+corrupted_found=0
 
 # Loop through local AUR packages and check for matches with the compromised list
-while read -r pacchetto; do
-    if grep -qFx "$pacchetto" "$TEMP_FILE"; then
-        echo -e "${RED}[!!!] WARNING: Installed package '$pacchetto' is present in the compromised lists!${NC}"
-        ((corrotti_trovati++))
+while read -r package; do
+    if grep -qFx "$package" "$TEMP_FILE"; then
+        echo -e "${RED}[!!!] WARNING: Installed package '$package' is present in the compromised lists!${NC}"
+        ((corrupted_found++))
     fi
-done <<< "$mappa_aur_locali"
+done <<< "$local_aur_map"
 
 # Clean up temporary file
 rm -f "$TEMP_FILE"
 
 # Final result
-if [ "$corrotti_trovati" -eq 0 ]; then
+if [ "$corrupted_found" -eq 0 ]; then
     echo -e "${GREEN}[+] Check completed successfully. No installed AUR package appears to be compromised.${NC}"
     exit 0
 else
-    echo -e "\n${RED}[!] WARNING: Found $corrotti_trovati potentially compromised packages on your system!${NC}"
+    echo -e "\n${RED}[!] WARNING: Found $corrupted_found potentially compromised packages on your system!${NC}"
     echo -e "${YELLOW}[i] We recommend removing them immediately using: pacman -Rns <package_name>${NC}"
     exit 2
 fi
